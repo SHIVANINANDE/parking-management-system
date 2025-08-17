@@ -1,4 +1,4 @@
-import { Grid, Paper, Typography, Box, Card, CardContent } from '@mui/material';
+import { Paper, Typography, Box, Card, CardContent } from '@mui/material';
 import { LocalParking, DirectionsCar, Schedule, TrendingUp } from '@mui/icons-material';
 import styled from 'styled-components';
 
@@ -58,10 +58,14 @@ const Dashboard = () => {
         Dashboard
       </Typography>
       
-      <Grid container spacing={3}>
-        {statsData.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <StatsCard>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+          gap: 3 
+        }}>
+          {statsData.map((stat, index) => (
+            <StatsCard key={index}>
               <CardContent>
                 <IconWrapper sx={{ backgroundColor: stat.bgColor }}>
                   <Box sx={{ color: stat.color }}>
@@ -76,10 +80,14 @@ const Dashboard = () => {
                 </Typography>
               </CardContent>
             </StatsCard>
-          </Grid>
-        ))}
+          ))}
+        </Box>
         
-        <Grid item xs={12} md={8}>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' },
+          gap: 3 
+        }}>
           <Paper sx={{ p: 2, height: 400 }}>
             <Typography variant="h6" gutterBottom>
               Parking Lot Occupancy
@@ -96,9 +104,7 @@ const Dashboard = () => {
               Chart will be implemented here
             </Box>
           </Paper>
-        </Grid>
-        
-        <Grid item xs={12} md={4}>
+          
           <Paper sx={{ p: 2, height: 400 }}>
             <Typography variant="h6" gutterBottom>
               Recent Activities
@@ -115,8 +121,8 @@ const Dashboard = () => {
               Activity feed will be implemented here
             </Box>
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 };

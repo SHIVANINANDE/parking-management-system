@@ -1,4 +1,4 @@
-import { ApiResponse, PaginatedResponse } from '@/types';
+import type { ApiResponse, PaginatedResponse } from '@/types';
 
 const API_BASE_URL = '/api/v1';
 

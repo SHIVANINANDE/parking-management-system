@@ -1,5 +1,5 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { ParkingSpot, ParkingLot, Reservation, FilterOptions } from '@/types';
+import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
+import type { ParkingSpot, ParkingLot, Reservation, FilterOptions } from '@/types';
 
 interface ParkingState {
   spots: ParkingSpot[];

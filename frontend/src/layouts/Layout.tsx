@@ -1,10 +1,9 @@
 import { Outlet } from 'react-router-dom';
 import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import { Dashboard, LocalParking, BookOnline, Settings } from '@mui/icons-material';
-import { useAppSelector, useAppDispatch } from '@/hooks';
-import { toggleSidebar } from '@/store/slices/uiSlice';
 import { Link, useLocation } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { ThemeProvider } from 'styled-components';
+import { useTheme } from '@mui/material/styles';
 
 const drawerWidth = 240;
 
@@ -35,11 +34,12 @@ const menuItems = [
 ];
 
 const Layout = () => {
-  const { sidebarOpen } = useAppSelector(state => state.ui);
   const location = useLocation();
+  const muiTheme = useTheme();
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <ThemeProvider theme={muiTheme}>
+      <Box sx={{ display: 'flex' }}>
       <AppBar
         position="fixed"
         sx={{
@@ -69,15 +69,12 @@ const Layout = () => {
           <Box sx={{ overflow: 'auto' }}>
             <List>
               {menuItems.map((item) => (
-                <StyledListItem
-                  key={item.text}
-                  component={Link}
-                  to={item.path}
-                  $active={location.pathname === item.path}
-                >
-                  <ListItemIcon>{item.icon}</ListItemIcon>
-                  <ListItemText primary={item.text} />
-                </StyledListItem>
+                <Link key={item.text} to={item.path} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <StyledListItem $active={location.pathname === item.path}>
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.text} />
+                  </StyledListItem>
+                </Link>
               ))}
             </List>
           </Box>
@@ -96,6 +93,7 @@ const Layout = () => {
         <Outlet />
       </Box>
     </Box>
+    </ThemeProvider>
   );
 };
 
