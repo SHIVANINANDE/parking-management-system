@@ -18,24 +18,126 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create ENUM types
-    op.execute("CREATE TYPE userrole AS ENUM ('user', 'admin', 'manager', 'operator')")
-    op.execute("CREATE TYPE userstatus AS ENUM ('active', 'inactive', 'suspended', 'pending_verification')")
-    op.execute("CREATE TYPE vehicletype AS ENUM ('car', 'motorcycle', 'truck', 'van', 'electric_car', 'electric_motorcycle', 'bicycle', 'scooter')")
-    op.execute("CREATE TYPE fueltype AS ENUM ('gasoline', 'diesel', 'electric', 'hybrid', 'plug_in_hybrid', 'cng', 'lpg')")
-    op.execute("CREATE TYPE parkinglottype AS ENUM ('outdoor', 'indoor', 'underground', 'multi_level', 'street_parking')")
-    op.execute("CREATE TYPE accesstype AS ENUM ('public', 'private', 'restricted', 'residential', 'commercial')")
-    op.execute("CREATE TYPE parkinglotstatus AS ENUM ('active', 'inactive', 'maintenance', 'temporarily_closed')")
-    op.execute("CREATE TYPE spotstatus AS ENUM ('available', 'occupied', 'reserved', 'out_of_order', 'maintenance')")
-    op.execute("CREATE TYPE spottype AS ENUM ('regular', 'compact', 'handicapped', 'electric', 'motorcycle', 'loading_zone', 'vip', 'family')")
-    op.execute("CREATE TYPE chargingtype AS ENUM ('none', 'type_1', 'type_2', 'ccs', 'chademo', 'tesla', 'universal')")
-    op.execute("CREATE TYPE reservationstatus AS ENUM ('pending', 'confirmed', 'active', 'completed', 'cancelled', 'expired', 'no_show', 'overstayed')")
-    op.execute("CREATE TYPE reservationtype AS ENUM ('immediate', 'scheduled', 'recurring')")
-    op.execute("CREATE TYPE paymentstatus AS ENUM ('pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'partially_refunded', 'disputed', 'chargeback')")
-    op.execute("CREATE TYPE paymentmethod AS ENUM ('credit_card', 'debit_card', 'digital_wallet', 'bank_transfer', 'cash', 'mobile_payment', 'cryptocurrency', 'account_credit', 'gift_card', 'subscription')")
-    op.execute("CREATE TYPE paymenttype AS ENUM ('reservation', 'extension', 'penalty', 'cancellation', 'subscription', 'refund', 'deposit', 'top_up')")
-    op.execute("CREATE TYPE currency AS ENUM ('USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CNY', 'INR')")
-    op.execute("CREATE TYPE analyticsperiod AS ENUM ('hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly')")
+    # Create ENUM types with IF NOT EXISTS to handle existing types
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE userrole AS ENUM ('user', 'admin', 'manager', 'operator');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE userstatus AS ENUM ('active', 'inactive', 'suspended', 'pending_verification');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE vehicletype AS ENUM ('car', 'motorcycle', 'truck', 'van', 'electric_car', 'electric_motorcycle', 'bicycle', 'scooter');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE fueltype AS ENUM ('gasoline', 'diesel', 'electric', 'hybrid', 'plug_in_hybrid', 'cng', 'lpg');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE parkinglottype AS ENUM ('outdoor', 'indoor', 'underground', 'multi_level', 'street_parking');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE accesstype AS ENUM ('public', 'private', 'restricted', 'residential', 'commercial');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE parkinglotstatus AS ENUM ('active', 'inactive', 'maintenance', 'temporarily_closed');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE spotstatus AS ENUM ('available', 'occupied', 'reserved', 'out_of_order', 'maintenance');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE spottype AS ENUM ('regular', 'compact', 'handicapped', 'electric', 'motorcycle', 'loading_zone', 'vip', 'family');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE chargingtype AS ENUM ('none', 'type_1', 'type_2', 'ccs', 'chademo', 'tesla', 'universal');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE reservationstatus AS ENUM ('pending', 'confirmed', 'active', 'completed', 'cancelled', 'expired', 'no_show', 'overstayed');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE reservationtype AS ENUM ('immediate', 'scheduled', 'recurring');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE paymentstatus AS ENUM ('pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'partially_refunded', 'disputed', 'chargeback');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE paymentmethod AS ENUM ('credit_card', 'debit_card', 'digital_wallet', 'bank_transfer', 'cash', 'mobile_payment', 'cryptocurrency', 'account_credit', 'gift_card', 'subscription');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE paymenttype AS ENUM ('reservation', 'extension', 'penalty', 'cancellation', 'subscription', 'refund', 'deposit', 'top_up');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE currency AS ENUM ('USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CNY', 'INR');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE analyticsperiod AS ENUM ('hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
 
     # Create users table
     op.create_table('users',

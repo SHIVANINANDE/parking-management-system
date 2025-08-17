@@ -146,7 +146,7 @@ class Payment(Base):
     # Metadata and Additional Information
     description = Column(Text, nullable=True)
     internal_notes = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)  # Additional custom data
+    custom_metadata = Column(JSON, nullable=True)  # Additional custom data
     
     # Relationships
     user = relationship("User", back_populates="payments")
