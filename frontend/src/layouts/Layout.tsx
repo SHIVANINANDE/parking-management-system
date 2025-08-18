@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { Dashboard, LocalParking, BookOnline, Settings } from '@mui/icons-material';
+import { Dashboard, LocalParking, BookOnline, Analytics, Settings } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router-dom';
 import styled, { ThemeProvider } from 'styled-components';
 import { useTheme } from '@mui/material/styles';
@@ -27,9 +27,10 @@ const StyledListItem = styled(ListItem)<{ $active?: boolean }>`
 `;
 
 const menuItems = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/' },
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
   { text: 'Parking Lots', icon: <LocalParking />, path: '/parking-lots' },
   { text: 'Reservations', icon: <BookOnline />, path: '/reservations' },
+  { text: 'Analytics', icon: <Analytics />, path: '/analytics' },
   { text: 'Settings', icon: <Settings />, path: '/settings' },
 ];
 

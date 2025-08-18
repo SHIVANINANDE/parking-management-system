@@ -1,16 +1,8 @@
-import { Typography, Box } from '@mui/material';
+import React from 'react';
+import ReservationsManagement from '../components/ReservationsManagement';
 
-const Reservations = () => {
-  return (
-    <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Reservations
-      </Typography>
-      <Typography variant="body1">
-        Reservations management will be implemented here.
-      </Typography>
-    </Box>
-  );
+const ReservationsPage: React.FC = () => {
+  return <ReservationsManagement />;
 };
 
-export default Reservations;
+export default ReservationsPage;
