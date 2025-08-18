@@ -1,0 +1,38 @@
+# Kibana Configuration
+
+server.name: "parking-kibana"
+server.host: "0.0.0.0"
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# Security (disable in development)
+xpack.security.enabled: false
+xpack.encryptedSavedObjects.encryptionKey: "something_at_least_32_characters_long"
+
+# Monitoring
+monitoring.ui.container.elasticsearch.enabled: true
+monitoring.kibana.collection.enabled: false
+
+# Saved objects and dashboards
+kibana.defaultAppId: "dashboard"
+kibana.autocompleteTimeout: 3000
+kibana.autocompleteTerminateAfter: 2500000
+
+# Dashboard settings
+dashboard.defaultDarkMode: false
+
+# Advanced settings
+elasticsearch.requestTimeout: 300000
+elasticsearch.shardTimeout: 30000
+
+# Security headers
+server.securityResponseHeaders.strictTransportSecurity: "max-age=31536000"
+server.securityResponseHeaders.xContentTypeOptions: "nosniff"
+server.securityResponseHeaders.referrerPolicy: "no-referrer-when-downgrade"
+
+# Logging
+logging.appenders.default:
+  type: console
+  layout:
+    type: json
+
+logging.root.level: info

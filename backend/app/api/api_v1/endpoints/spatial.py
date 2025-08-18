@@ -56,6 +56,7 @@ class OptimalRouteRequest(BaseModel):
     route_type: str = Field(default="fastest", description="Route optimization type: fastest, shortest, scenic")
     avoid_tolls: bool = Field(default=False, description="Avoid toll roads")
     vehicle_type: str = Field(default="car", description="Vehicle type for routing")
+    obstacles: Optional[List[List[float]]] = Field(default=None, description="Obstacle coordinates [[lat,lng],...]")
 
 
 class SpatialClusteringRequest(BaseModel):
@@ -129,7 +130,6 @@ async def find_nearest_spots_with_rtree(
 @router.post("/advanced/astar-pathfinding")
 async def calculate_astar_path(
     request: OptimalRouteRequest,
-    obstacles: Optional[List[List[float]]] = Query(default=None, description="Obstacle coordinates [[lat,lng],...]"),
     session: AsyncSession = Depends(get_db)
 ):
     """
@@ -139,8 +139,8 @@ async def calculate_astar_path(
     
     try:
         obstacle_coords = []
-        if obstacles:
-            obstacle_coords = [(lat, lng) for lat, lng in obstacles]
+        if request.obstacles:
+            obstacle_coords = [(lat, lng) for lat, lng in request.obstacles]
         
         path = await advanced_service.implement_astar_pathfinding(
             start_lat=request.start_location.latitude,

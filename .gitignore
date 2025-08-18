@@ -8,6 +8,7 @@ backend/venv/
 .Python
 env/
 .env
+.env.*
 
 # Node modules
 node_modules/
@@ -30,4 +31,37 @@ Thumbs.db
 
 # Log files
 *.log
-backend/venv/
+logs/
+
+# Docker volumes and data
+docker/postgres_data/
+docker/redis_data/
+docker/elasticsearch_data/
+docker/kafka_data/
+docker/zookeeper_data/
+docker/zookeeper_logs/
+docker/backend_logs/
+docker/nginx_logs/
+docker/prometheus_data/
+docker/grafana_data/
+
+# SSL certificates (keep template/example files)
+docker/nginx/ssl/*.pem
+docker/nginx/ssl/*.key
+docker/nginx/ssl/*.crt
+
+# Environment files (keep templates)
+docker/.env
+!docker/.env.*
+
+# Monitoring data
+monitoring/data/
+
+# Test coverage
+coverage/
+.coverage
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp

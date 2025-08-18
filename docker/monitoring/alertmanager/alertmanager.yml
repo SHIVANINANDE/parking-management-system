@@ -1,0 +1,237 @@
+# AlertManager Configuration for Parking Management System
+
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@parking-system.com'
+  smtp_auth_username: 'alerts@parking-system.com'
+  smtp_auth_password: 'your-email-password'
+
+# Email notification templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      group_interval: 5s
+      repeat_interval: 15m
+
+    # System alerts
+    - match:
+        category: system
+      receiver: 'system-alerts'
+      group_interval: 30s
+      repeat_interval: 2h
+
+    # Database alerts
+    - match:
+        category: database
+      receiver: 'database-alerts'
+      group_interval: 30s
+      repeat_interval: 1h
+
+    # Business alerts
+    - match:
+        category: business
+      receiver: 'business-alerts'
+      group_interval: 5m
+      repeat_interval: 6h
+
+    # Security alerts
+    - match:
+        category: security
+      receiver: 'security-alerts'
+      group_interval: 1m
+      repeat_interval: 30m
+
+# Inhibition rules to suppress redundant alerts
+inhibit_rules:
+  # Suppress warning alerts if critical alert is active
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+  # Suppress database alerts if database is down
+  - source_match:
+      alertname: 'DatabaseDown'
+    target_match_re:
+      alertname: '(SlowDatabaseQueries|HighConnectionPoolUtilization)'
+    equal: ['instance']
+
+  # Suppress API alerts if service is down
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '(HighAPILatency|HighErrorRate)'
+    equal: ['job', 'instance']
+
+# Receivers configuration
+receivers:
+  # Default receiver
+  - name: 'default'
+    email_configs:
+      - to: 'admin@parking-system.com'
+        subject: '[ALERT] {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  # Critical alerts - multiple channels
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'oncall@parking-system.com'
+        subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
+        html: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <style>
+                  .critical { background-color: #dc3545; color: white; padding: 10px; }
+                  .alert-detail { background-color: #f8f9fa; padding: 15px; margin: 10px 0; }
+              </style>
+          </head>
+          <body>
+              <div class="critical">
+                  <h2>🚨 CRITICAL ALERT</h2>
+              </div>
+              {{ range .Alerts }}
+              <div class="alert-detail">
+                  <h3>{{ .Annotations.summary }}</h3>
+                  <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+                  <p><strong>Severity:</strong> {{ .Labels.severity }}</p>
+                  <p><strong>Service:</strong> {{ .Labels.job }}</p>
+                  <p><strong>Instance:</strong> {{ .Labels.instance }}</p>
+                  <p><strong>Started:</strong> {{ .StartsAt }}</p>
+                  {{ if .Annotations.runbook_url }}
+                  <p><strong>Runbook:</strong> <a href="{{ .Annotations.runbook_url }}">{{ .Annotations.runbook_url }}</a></p>
+                  {{ end }}
+              </div>
+              {{ end }}
+          </body>
+          </html>
+    
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#critical-alerts'
+        title: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Service:* {{ .Labels.job }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+        send_resolved: true
+
+    # PagerDuty integration for critical alerts
+    pagerduty_configs:
+      - routing_key: 'YOUR_PAGERDUTY_INTEGRATION_KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ .Alerts.Firing | len }}'
+          resolved: '{{ .Alerts.Resolved | len }}'
+        links:
+          - href: 'http://grafana:3000/dashboards'
+            text: 'Grafana Dashboards'
+
+  # System alerts
+  - name: 'system-alerts'
+    email_configs:
+      - to: 'ops-team@parking-system.com'
+        subject: '[SYSTEM] {{ .GroupLabels.alertname }}'
+        body: |
+          System Alert Triggered
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Instance: {{ .Labels.instance }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#ops-alerts'
+        title: '⚠️ System Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Description:* {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+
+  # Database alerts
+  - name: 'database-alerts'
+    email_configs:
+      - to: 'dba-team@parking-system.com'
+        subject: '[DATABASE] {{ .GroupLabels.alertname }}'
+        body: |
+          Database Alert Triggered
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  # Business alerts
+  - name: 'business-alerts'
+    email_configs:
+      - to: 'business-team@parking-system.com'
+        subject: '[BUSINESS] {{ .GroupLabels.alertname }}'
+        body: |
+          Business Metric Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  # Security alerts
+  - name: 'security-alerts'
+    email_configs:
+      - to: 'security-team@parking-system.com'
+        subject: '[SECURITY] {{ .GroupLabels.alertname }}'
+        body: |
+          Security Alert Triggered
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#security-alerts'
+        title: '🔒 Security Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+        send_resolved: true

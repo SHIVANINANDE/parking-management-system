@@ -1,0 +1,358 @@
+# Prometheus Alert Rules for Parking Management System
+
+groups:
+  # System Resource Alerts
+  - name: system.rules
+    rules:
+      - alert: HighCPUUsage
+        expr: system:cpu_utilization_avg_5m > 0.85
+        for: 2m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 85% for more than 2 minutes on {{ $labels.instance }}"
+          runbook_url: "https://docs.parking-system.com/runbooks/high-cpu"
+
+      - alert: CriticalCPUUsage
+        expr: system:cpu_utilization_avg_5m > 0.95
+        for: 1m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage is above 95% for more than 1 minute on {{ $labels.instance }}"
+          runbook_url: "https://docs.parking-system.com/runbooks/critical-cpu"
+
+      - alert: HighMemoryUsage
+        expr: system:memory_utilization > 0.90
+        for: 1m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 90% on {{ $labels.instance }}"
+
+      - alert: CriticalMemoryUsage
+        expr: system:memory_utilization > 0.95
+        for: 30s
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage is above 95% on {{ $labels.instance }}"
+
+      - alert: LowDiskSpace
+        expr: system:disk_utilization > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is above 90% on {{ $labels.instance }}"
+
+      - alert: CriticalDiskSpace
+        expr: system:disk_utilization > 0.95
+        for: 1m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Critical disk space"
+          description: "Disk usage is above 95% on {{ $labels.instance }}"
+
+  # Application Performance Alerts
+  - name: application.rules
+    rules:
+      - alert: HighAPILatency
+        expr: api:request_duration_95th_percentile_5m > 2
+        for: 2m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile latency is above 2 seconds for {{ $labels.endpoint }}"
+
+      - alert: VeryHighAPILatency
+        expr: api:request_duration_95th_percentile_5m > 5
+        for: 1m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "Very high API latency detected"
+          description: "95th percentile latency is above 5 seconds for {{ $labels.endpoint }}"
+
+      - alert: HighErrorRate
+        expr: api:error_rate_5m > 0.05
+        for: 1m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "High API error rate"
+          description: "Error rate is above 5% for {{ $labels.endpoint }}"
+
+      - alert: CriticalErrorRate
+        expr: api:error_rate_5m > 0.20
+        for: 30s
+        labels:
+          severity: critical
+          category: errors
+        annotations:
+          summary: "Critical API error rate"
+          description: "Error rate is above 20% for {{ $labels.endpoint }}"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} service is down on {{ $labels.instance }}"
+
+      - alert: LowThroughput
+        expr: api:request_rate_5m < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Low API throughput"
+          description: "Request rate is below 0.1 requests/second for {{ $labels.endpoint }}"
+
+  # Database Alerts
+  - name: database.rules
+    rules:
+      - alert: SlowDatabaseQueries
+        expr: db:query_duration_95th_percentile_5m > 2
+        for: 2m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile database query duration is above 2 seconds"
+
+      - alert: VerySlowDatabaseQueries
+        expr: db:query_duration_95th_percentile_5m > 10
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Very slow database queries detected"
+          description: "95th percentile database query duration is above 10 seconds"
+
+      - alert: HighConnectionPoolUtilization
+        expr: db:connection_utilization > 0.90
+        for: 2m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "High database connection pool utilization"
+          description: "Database connection pool utilization is above 90%"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db:connection_utilization > 0.98
+        for: 30s
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Database connection pool utilization is above 98%"
+
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database is down"
+          description: "PostgreSQL database is not responding"
+
+  # Redis Alerts
+  - name: redis.rules
+    rules:
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          category: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache server is not responding"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          category: cache
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is above 90%"
+
+      - alert: RedisSlowLog
+        expr: increase(redis_slowlog_length[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          category: cache
+        annotations:
+          summary: "Redis slow queries detected"
+          description: "Redis has more than 10 slow queries in the last 5 minutes"
+
+  # Business Logic Alerts
+  - name: business.rules
+    rules:
+      - alert: LowParkingOccupancy
+        expr: avg(parking:occupancy_rate_by_lot) < 0.10
+        for: 30m
+        labels:
+          severity: info
+          category: business
+        annotations:
+          summary: "Low parking occupancy"
+          description: "Average parking occupancy is below 10% for 30 minutes"
+
+      - alert: HighParkingOccupancy
+        expr: avg(parking:occupancy_rate_by_lot) > 0.95
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "High parking occupancy"
+          description: "Average parking occupancy is above 95%"
+
+      - alert: ParkingLotFull
+        expr: parking:occupancy_rate_by_lot == 1
+        for: 1m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "Parking lot is full"
+          description: "Parking lot {{ $labels.lot_id }} is at 100% occupancy"
+
+      - alert: LowReservationSuccessRate
+        expr: parking:reservation_success_rate < 0.80
+        for: 10m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "Low reservation success rate"
+          description: "Reservation success rate is below 80%"
+
+      - alert: NoRevenueGenerated
+        expr: parking:revenue_per_hour == 0
+        for: 2h
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "No revenue generated"
+          description: "No revenue has been generated in the last 2 hours"
+
+  # Security Alerts
+  - name: security.rules
+    rules:
+      - alert: TooManyFailedLogins
+        expr: increase(authentication_failures_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Too many failed login attempts"
+          description: "More than 10 failed login attempts in the last 5 minutes"
+
+      - alert: SuspiciousAPIUsage
+        expr: rate(http_requests_total{status_code="401"}[5m]) > 2
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of unauthorized requests"
+          description: "High rate of 401 responses detected, possible brute force attack"
+
+      - alert: UnusualTrafficPattern
+        expr: rate(http_requests_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: info
+          category: security
+        annotations:
+          summary: "Unusual traffic pattern detected"
+          description: "Request rate is unusually high (>100 req/sec)"
+
+  # Container and Orchestration Alerts
+  - name: containers.rules
+    rules:
+      - alert: ContainerRestartingTooOften
+        expr: increase(container_start_time_seconds[1h]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          category: containers
+        annotations:
+          summary: "Container restarting too often"
+          description: "Container {{ $labels.name }} has restarted more than 5 times in the last hour"
+
+      - alert: ContainerHighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: containers
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is above 80%"
+
+      - alert: ContainerHighMemoryUsage
+        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          category: containers
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is above 90%"
+
+  # Network and Connectivity Alerts
+  - name: network.rules
+    rules:
+      - alert: HighNetworkReceiveErrors
+        expr: rate(node_network_receive_errs_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "High network receive errors"
+          description: "Network interface {{ $labels.device }} has high receive error rate"
+
+      - alert: HighNetworkTransmitErrors
+        expr: rate(node_network_transmit_errs_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "High network transmit errors"
+          description: "Network interface {{ $labels.device }} has high transmit error rate"

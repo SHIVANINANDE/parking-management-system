@@ -1,0 +1,144 @@
+# Filebeat Configuration for ELK Stack Integration
+
+filebeat.inputs:
+# Docker containers logs
+- type: container
+  paths:
+    - '/var/lib/docker/containers/*/*.log'
+  processors:
+    - add_docker_metadata:
+        host: "unix:///var/run/docker.sock"
+    - decode_json_fields:
+        fields: ["message"]
+        target: ""
+        overwrite_keys: true
+    - timestamp:
+        field: "@timestamp"
+        layouts:
+          - '2006-01-02T15:04:05.000000000Z'
+          - '2006-01-02T15:04:05.000Z'
+          - '2006-01-02T15:04:05Z'
+    - drop_fields:
+        fields: ["agent", "ecs", "host.mac", "host.ip"]
+
+# Application-specific log parsing
+- type: log
+  paths:
+    - "/var/log/parking-api/*.log"
+    - "/var/log/nginx/*.log"
+  fields:
+    service: parking-api
+    environment: ${ENVIRONMENT:development}
+  fields_under_root: true
+  multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+  multiline.negate: true
+  multiline.match: after
+
+# System logs
+- type: log
+  paths:
+    - "/var/log/syslog"
+    - "/var/log/auth.log"
+  fields:
+    service: system
+    log_type: system
+
+# Processors for log enrichment
+processors:
+  # Add common fields
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  
+  # Parse JSON logs
+  - decode_json_fields:
+      fields: ["message"]
+      target: ""
+      overwrite_keys: true
+      when:
+        contains:
+          message: "{"
+  
+  # Extract log levels
+  - dissect:
+      tokenizer: "%{timestamp} %{level} %{message}"
+      field: "message"
+      target_prefix: "parsed"
+      when:
+        regexp:
+          message: '^\d{4}-\d{2}-\d{2}.*?(DEBUG|INFO|WARNING|ERROR|CRITICAL)'
+  
+  # Normalize log levels
+  - script:
+      lang: javascript
+      source: >
+        function process(event) {
+          var level = event.Get("parsed.level");
+          if (level) {
+            switch(level.toLowerCase()) {
+              case "debug":
+                event.Put("log.level", "debug");
+                break;
+              case "info":
+              case "information":
+                event.Put("log.level", "info");
+                break;
+              case "warn":
+              case "warning":
+                event.Put("log.level", "warn");
+                break;
+              case "err":
+              case "error":
+                event.Put("log.level", "error");
+                break;
+              case "fatal":
+              case "critical":
+                event.Put("log.level", "fatal");
+                break;
+            }
+          }
+        }
+  
+  # Drop debug logs in production
+  - drop_event:
+      when:
+        and:
+          - equals:
+              log.level: "debug"
+          - equals:
+              environment: "production"
+
+# Output configuration
+output.logstash:
+  hosts: ["logstash:5044"]
+  index: "parking-logs"
+  
+# Alternative: Direct to Elasticsearch
+# output.elasticsearch:
+#   hosts: ["elasticsearch:9200"]
+#   index: "parking-logs-%{+yyyy.MM.dd}"
+#   template.enabled: true
+#   template.pattern: "parking-logs-*"
+
+# Logging configuration
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+# Monitoring
+monitoring.enabled: true
+monitoring.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: ".monitoring-filebeat"
+
+# Performance tuning
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 5s
+
+# Performance and retry configuration for logstash output
+# Note: These settings are applied to the main output.logstash section above

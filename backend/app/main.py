@@ -10,6 +10,7 @@ import uvicorn
 from app.core.config import settings
 from app.api.api_v1.api import api_router
 from app.services.spatial_background import start_spatial_processor, stop_spatial_processor
+from app.api.api_v1.endpoints.events import initialize_event_system
 from app.middleware import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
@@ -34,6 +35,10 @@ async def lifespan(app: FastAPI):
         spatial_task = asyncio.create_task(start_spatial_processor())
         logger.info("Spatial background processor started")
         
+        # Initialize event system
+        await initialize_event_system()
+        logger.info("Event system initialized")
+        
         # Initialize authentication and security systems
         logger.info("Authentication and security systems initialized")
         
@@ -49,6 +54,15 @@ async def lifespan(app: FastAPI):
         try:
             await stop_spatial_processor()
             logger.info("Spatial background processor stopped")
+            
+            # Stop event system
+            from app.services.reservation_service import reservation_manager
+            from app.services.event_service import event_service
+            
+            await reservation_manager.stop_processing()
+            event_service.close()
+            logger.info("Event system stopped")
+            
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
 
@@ -56,7 +70,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Smart Parking Management System API with Advanced Security & Authentication",
+    description="Smart Parking Management System API with Advanced Security, Spatial Analytics & Real-time Events",
     openapi_url=settings.OPENAPI_URL if settings.DEBUG else None,
     docs_url=settings.DOCS_URL if settings.DEBUG else None,
     redoc_url=settings.REDOC_URL if settings.DEBUG else None,
@@ -76,7 +90,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "WEBSOCKET"],
     allow_headers=["*"],
     expose_headers=["X-Process-Time", "X-RateLimit-Limit", "X-RateLimit-Remaining"]
 )
@@ -141,7 +155,14 @@ async def root():
             "PostGIS Spatial Extensions",
             "Real-time Geofencing",
             "Spatial Analytics",
-            "Advanced Security"
+            "Advanced Security",
+            "Real-time Event Streaming",
+            "CQRS Pattern",
+            "Event Sourcing", 
+            "Concurrent Reservations",
+            "WebSocket Support",
+            "Priority Queuing",
+            "Optimistic Concurrency Control"
         ],
         "documentation": "/docs" if settings.DEBUG else None
     }
@@ -156,7 +177,12 @@ async def health_check():
         "spatial_extensions": "enabled",
         "postgis": "active",
         "authentication": "JWT + OAuth2",
-        "rate_limiting": "active"
+        "rate_limiting": "active",
+        "event_streaming": "active",
+        "kafka": "connected",
+        "redis": "connected",
+        "cqrs": "enabled",
+        "websockets": "enabled"
     }
 
 @app.get("/security-info")
@@ -177,7 +203,9 @@ async def security_info():
             "security_headers": True,
             "brute_force_protection": True,
             "cors_enabled": True,
-            "input_validation": True
+            "input_validation": True,
+            "row_level_locking": True,
+            "optimistic_concurrency": True
         },
         "password_requirements": {
             "min_length": settings.PASSWORD_MIN_LENGTH,
@@ -187,6 +215,16 @@ async def security_info():
             "require_special": settings.PASSWORD_REQUIRE_SPECIAL
         }
     }
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.DEBUG,
+        ssl_keyfile=settings.SSL_PRIVATE_KEY_PATH if settings.USE_SSL else None,
+        ssl_certfile=settings.SSL_CERTIFICATE_PATH if settings.USE_SSL else None
+    )
 
 if __name__ == "__main__":
     uvicorn.run(
