@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Provider } from 'react-redux';
 import { ThemeProvider, CssBaseline, GlobalStyles } from '@mui/material';
+import { Toaster } from 'react-hot-toast';
 import { store } from './store';
 import { queryClient } from './services/queryClient';
 import { initializeWebSockets } from './services/websocket';
@@ -165,6 +166,26 @@ const App: React.FC = () => {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <GlobalStyles styles={leafletStyles} />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+              },
+              success: {
+                style: {
+                  background: '#4caf50',
+                },
+              },
+              error: {
+                style: {
+                  background: '#f44336',
+                },
+              },
+            }}
+          />
           <AppContent />
           {/* React Query Devtools - only in development */}
           {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
