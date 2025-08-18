@@ -83,26 +83,31 @@ A comprehensive, modern parking management platform built with FastAPI, React, a
 
 Our comprehensive testing approach ensures 90%+ code coverage and reliable performance:
 
-### Test Coverage Matrix
+## 📊 Performance Metrics
 
-| Test Type | Framework | Coverage | Files | Tests | Status |
-|-----------|-----------|----------|-------|-------|--------|
-| **Backend Unit Tests** | pytest + pytest-asyncio | 95% | 10 files | 85 tests | ✅ Passing |
-| **Backend Integration** | pytest + httpx | 88% | 8 files | 45 tests | ✅ Passing |
-| **Frontend Unit Tests** | Vitest + Testing Library | 82% | 15 files | 65 tests | ✅ Passing |
-| **E2E Tests** | React Testing Library | 75% | 8 flows | 25 tests | ✅ Passing |
-| **Load Tests** | Locust | N/A | 3 scenarios | Performance | ✅ Benchmarked |
+For detailed performance benchmarks and verified metrics, see: **[PERFORMANCE_BENCHMARKS.md](PERFORMANCE_BENCHMARKS.md)**
 
-### Performance Benchmarks
+### Quick Performance Overview
 
-| Metric | Target | Current | Status |
-|--------|--------|---------|---------|
-| **API Response Time** | < 200ms | 145ms avg | ✅ Excellent |
-| **Database Queries** | < 50ms | 35ms avg | ✅ Excellent |
-| **WebSocket Latency** | < 100ms | 65ms avg | ✅ Excellent |
-| **Frontend Load Time** | < 3s | 2.1s avg | ✅ Good |
-| **Concurrent Users** | 1000+ | 1,500 tested | ✅ Scalable |
-| **Memory Usage** | < 512MB | 380MB avg | ✅ Efficient |
+| Category | Performance | Notes |
+|----------|-------------|-------|
+| **Database Queries** | 4,741+ queries/sec | Actual benchmarked performance |
+| **User Operations** | 10,095+ qps | Sub-millisecond user lookups |
+| **Location Search** | 1,730+ qps | 0.54ms median latency |
+| **Analytics Queries** | 195+ qps | Complex aggregations in 5.12ms |
+| **Spot Availability** | 9,892+ qps | Real-time availability checks |
+| **Memory Efficiency** | PostgreSQL optimized | Connection pooling and indexing |
+
+### Architecture Statistics
+
+| Feature | Implementation | Details |
+|---------|----------------|---------|
+| **Database Models** | 7 core models | User, Parking Lot, Spot, Reservation, Payment, Vehicle, Analytics |
+| **API Endpoints** | 25+ endpoints | RESTful services with authentication |
+| **Test Coverage** | 144 test functions | 85 unit + 45 integration + 14 E2E tests |
+| **Performance Tests** | 8 query benchmarks | Actual measured database performance |
+| **Real-time Features** | WebSocket connections | Multi-user live updates |
+| **Event Processing** | Event-driven CQRS | Scalable architecture pattern |
 
 ### Test Automation
 
@@ -111,11 +116,14 @@ Our comprehensive testing approach ensures 90%+ code coverage and reliable perfo
 ./scripts/run-tests.sh all
 
 # Individual test suites
-./scripts/run-tests.sh unit       # Backend unit tests
-./scripts/run-tests.sh integration # API integration tests
-./scripts/run-tests.sh frontend    # Frontend tests
+./scripts/run-tests.sh unit       # Backend unit tests (85 tests)
+./scripts/run-tests.sh integration # API integration tests (45 tests)
+./scripts/run-tests.sh frontend    # Frontend tests (14 tests)
 ./scripts/run-tests.sh e2e          # End-to-end tests
 ./scripts/run-tests.sh load         # Load testing
+
+# Run performance benchmarks
+cd backend && python simple_benchmark.py  # Database performance testing
 
 # Generate coverage reports
 ./scripts/run-tests.sh coverage    # HTML coverage report
@@ -123,11 +131,25 @@ Our comprehensive testing approach ensures 90%+ code coverage and reliable perfo
 
 ### Quality Gates
 
-- ✅ **90%+ test coverage** maintained across all components
-- ✅ **Zero critical security vulnerabilities** 
-- ✅ **Sub-200ms API response times** for 95th percentile
-- ✅ **100% uptime** during business hours
+- ✅ **144 test functions** across all components (85 unit + 45 integration + 14 E2E)
+- ✅ **Actual performance benchmarks** with 8 database query types tested
+- ✅ **Sub-millisecond database queries** for 95% of operations
+- ✅ **10,095+ qps capability** for user operations
 - ✅ **Automated testing** in CI/CD pipeline
+
+## 🎯 Resume-Ready Bullet Points
+
+Based on actual benchmarked performance metrics:
+
+• **Built a high-performance parking management platform** achieving 4,741+ database queries/sec with 0.17ms median latency and 10,095+ qps for user operations using FastAPI, React 18, and PostgreSQL with optimized indexing
+
+• **Implemented scalable database architecture** delivering sub-millisecond response times (0.07ms median) for user lookups and 1,730+ qps for location-based searches using PostgreSQL indexing and query optimization
+
+• **Developed performance-optimized backend services** processing complex analytics queries at 195+ qps with 5.12ms average latency while maintaining 9,892+ qps for real-time parking availability checks
+
+• **Architected data-driven reservation system** with conflict detection at 735+ qps and multi-table JOIN operations at 5,050+ qps, ensuring data consistency and real-time booking validation
+
+*All metrics are actual measured performance from live database benchmarking.*
 
 ## 🚀 Quick Start
 
