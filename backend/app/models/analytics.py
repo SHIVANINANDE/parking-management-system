@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, Numeric, ForeignKey, Text, JSON, Date
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, Numeric, ForeignKey, Text, JSON, Date, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.db.database import Base
 import enum
+import uuid
 from datetime import datetime, date
 
 class AnalyticsPeriod(enum.Enum):
@@ -219,3 +221,143 @@ class RevenueAnalytics(Base):
         if self.unique_customers == 0:
             return 0.00
         return ((self.repeat_customers / self.unique_customers) * 100)
+
+class OccupancyPattern(Base):
+    """Store detected occupancy patterns for predictive analytics."""
+    
+    __tablename__ = "occupancy_patterns"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parking_lot_id = Column(Integer, ForeignKey("parking_lots.id"), nullable=False)
+    
+    # Pattern identification
+    pattern_type = Column(String(50), nullable=False)  # 'hourly', 'daily', 'seasonal', 'event_based'
+    pattern_name = Column(String(100))
+    confidence_score = Column(Float, default=0.0)  # 0.0 to 1.0
+    
+    # Pattern timing
+    time_context = Column(JSONB)  # Store time-based context (hour, day, month, etc.)
+    recurring_schedule = Column(JSONB)  # Store recurring pattern schedule
+    
+    # Pattern characteristics
+    expected_occupancy_rate = Column(Float, default=0.0)
+    occupancy_variance = Column(Float, default=0.0)
+    demand_level = Column(String(20))  # 'low', 'medium', 'high', 'peak'
+    
+    # Pattern data
+    historical_data_points = Column(Integer, default=0)
+    pattern_strength = Column(Float, default=0.0)
+    seasonal_factors = Column(JSONB)
+    
+    # Validation metrics
+    prediction_accuracy = Column(Float)
+    last_validation_date = Column(DateTime)
+    validation_count = Column(Integer, default=0)
+    
+    # Pattern lifecycle
+    first_detected = Column(DateTime, default=datetime.utcnow)
+    last_observed = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    
+    # Metadata
+    detection_algorithm = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    parking_lot = relationship("ParkingLot")
+    
+    def __repr__(self):
+        return f"<OccupancyPattern(id={self.id}, type={self.pattern_type}, confidence={self.confidence_score})>"
+
+class DemandForecast(Base):
+    """Store demand predictions and forecast accuracy metrics."""
+    
+    __tablename__ = "demand_forecasts"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parking_lot_id = Column(Integer, ForeignKey("parking_lots.id"), nullable=False)
+    
+    # Forecast timing
+    forecast_created_at = Column(DateTime, default=datetime.utcnow)
+    forecast_start_time = Column(DateTime, nullable=False)
+    forecast_end_time = Column(DateTime, nullable=False)
+    forecast_horizon_hours = Column(Integer, nullable=False)
+    
+    # Prediction model info
+    model_name = Column(String(50), nullable=False)
+    model_version = Column(String(20), default="1.0")
+    training_data_points = Column(Integer)
+    
+    # Forecast values
+    predicted_demand = Column(JSONB)  # Time series predictions
+    confidence_intervals = Column(JSONB)  # Upper and lower bounds
+    peak_demand_time = Column(DateTime)
+    peak_demand_value = Column(Float)
+    
+    # Forecast metadata
+    prediction_confidence = Column(Float, default=0.0)  # Overall confidence score
+    weather_factors = Column(JSONB)  # Weather impact if available
+    event_factors = Column(JSONB)  # Special events impact
+    seasonal_adjustments = Column(JSONB)
+    
+    # Accuracy tracking (filled after actual observations)
+    actual_demand = Column(JSONB)
+    forecast_accuracy = Column(Float)  # MAE, RMSE, etc.
+    accuracy_computed_at = Column(DateTime)
+    
+    # Model performance
+    mae_score = Column(Float)  # Mean Absolute Error
+    rmse_score = Column(Float)  # Root Mean Square Error
+    mape_score = Column(Float)  # Mean Absolute Percentage Error
+    
+    # Status
+    status = Column(String(20), default="pending")  # pending, active, completed, expired
+    
+    # Metadata
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    parking_lot = relationship("ParkingLot")
+    
+    def __repr__(self):
+        return f"<DemandForecast(id={self.id}, model={self.model_name}, horizon={self.forecast_horizon_hours}h)>"
+
+class PerformanceMetrics(Base):
+    """Store system performance metrics for optimization tracking."""
+    
+    __tablename__ = "performance_metrics"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Metric identification
+    metric_category = Column(String(50), nullable=False)  # 'cache', 'database', 'api', 'bloom_filter'
+    metric_name = Column(String(100), nullable=False)
+    
+    # Time context
+    measurement_time = Column(DateTime, default=datetime.utcnow)
+    measurement_period_start = Column(DateTime)
+    measurement_period_end = Column(DateTime)
+    
+    # Metric values
+    metric_value = Column(Float, nullable=False)
+    metric_unit = Column(String(20))  # 'ms', 'percent', 'count', 'bytes'
+    
+    # Context data
+    context_data = Column(JSONB)  # Additional context like query type, cache key patterns, etc.
+    
+    # Performance benchmarks
+    baseline_value = Column(Float)
+    target_value = Column(Float)
+    performance_rating = Column(String(20))  # 'excellent', 'good', 'acceptable', 'needs_improvement'
+    
+    # Aggregation level
+    aggregation_level = Column(String(20))  # 'raw', 'hourly', 'daily', 'weekly'
+    
+    # Metadata
+    collection_method = Column(String(50))  # 'automatic', 'manual', 'synthetic'
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<PerformanceMetrics(category={self.metric_category}, name={self.metric_name}, value={self.metric_value})>"
