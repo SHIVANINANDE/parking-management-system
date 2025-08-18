@@ -1,5 +1,6 @@
 """
 Spatial service for geospatial operations and location-based queries
+Enhanced with advanced PostGIS operations and geofencing algorithms
 """
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,10 +9,13 @@ from geoalchemy2 import WKTElement
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_Contains, ST_Buffer, ST_Transform, ST_MakePoint, ST_SetSRID
 from decimal import Decimal
 import json
+import logging
 
 from app.models.parking_lot import ParkingLot, ParkingLotStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus, SpotType
 from app.models.vehicle import Vehicle
+
+logger = logging.getLogger(__name__)
 
 
 class SpatialService:
@@ -427,6 +431,425 @@ class SpatialService:
             "estimated_time_minutes": round(estimated_time_minutes, 1),
             "destination_lat": float(row.spot_lat),
             "destination_lng": float(row.spot_lng)
+        }
+    
+    async def create_buffer_zone(self, center_lat: float, center_lng: float, 
+                               radius_meters: int, buffer_meters: int = 50) -> str:
+        """
+        Create a buffer zone around a point for enhanced geofencing
+        
+        Args:
+            center_lat: Center latitude
+            center_lng: Center longitude
+            radius_meters: Primary radius in meters
+            buffer_meters: Additional buffer in meters
+            
+        Returns:
+            WKT string of buffered polygon
+        """
+        query = text("""
+            SELECT ST_AsText(
+                ST_Transform(
+                    ST_Buffer(
+                        ST_Buffer(
+                            ST_Transform(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326), 3857),
+                            :radius
+                        ),
+                        :buffer
+                    ),
+                    4326
+                )
+            ) as buffered_geofence_wkt
+        """)
+        
+        result = await self.session.execute(
+            query,
+            {
+                "lat": center_lat, 
+                "lng": center_lng, 
+                "radius": radius_meters,
+                "buffer": buffer_meters
+            }
+        )
+        
+        row = result.first()
+        return row.buffered_geofence_wkt if row else ""
+    
+    async def find_spots_within_polygon_intersection(self, polygon1_wkt: str, 
+                                                   polygon2_wkt: str) -> List[Dict[str, Any]]:
+        """
+        Find parking spots within intersection of two polygons
+        
+        Args:
+            polygon1_wkt: First polygon in WKT format
+            polygon2_wkt: Second polygon in WKT format
+            
+        Returns:
+            List of parking spots in intersection area
+        """
+        query = text("""
+            WITH intersection AS (
+                SELECT ST_Intersection(
+                    ST_GeomFromText(:poly1_wkt, 4326),
+                    ST_GeomFromText(:poly2_wkt, 4326)
+                ) as intersect_geom
+            )
+            SELECT 
+                ps.id,
+                ps.spot_number,
+                ps.spot_type,
+                ps.status,
+                ps.parking_lot_id,
+                pl.name as lot_name,
+                ST_Y(ST_Transform(ps.location, 4326)) as latitude,
+                ST_X(ST_Transform(ps.location, 4326)) as longitude
+            FROM parking_spots ps
+            JOIN parking_lots pl ON ps.parking_lot_id = pl.id
+            CROSS JOIN intersection
+            WHERE 
+                ps.location IS NOT NULL
+                AND ST_Contains(intersection.intersect_geom, ps.location)
+        """)
+        
+        result = await self.session.execute(
+            query,
+            {"poly1_wkt": polygon1_wkt, "poly2_wkt": polygon2_wkt}
+        )
+        
+        return [dict(row._mapping) for row in result]
+    
+    async def calculate_spatial_clustering(self, region_bounds: Tuple[float, float, float, float],
+                                         cluster_distance_meters: int = 100) -> List[Dict[str, Any]]:
+        """
+        Calculate spatial clustering of parking spots using PostGIS
+        
+        Args:
+            region_bounds: (min_lng, min_lat, max_lng, max_lat) boundary
+            cluster_distance_meters: Maximum distance for clustering
+            
+        Returns:
+            List of spatial clusters with statistics
+        """
+        min_lng, min_lat, max_lng, max_lat = region_bounds
+        
+        query = text("""
+            WITH clustered_spots AS (
+                SELECT 
+                    ps.id,
+                    ps.spot_type,
+                    ps.status,
+                    ST_ClusterDBSCAN(ps.location, eps => :cluster_distance, minpoints => 3) 
+                        OVER() AS cluster_id,
+                    ST_Y(ST_Transform(ps.location, 4326)) as latitude,
+                    ST_X(ST_Transform(ps.location, 4326)) as longitude
+                FROM parking_spots ps
+                WHERE ps.location IS NOT NULL
+                AND ST_Within(
+                    ps.location,
+                    ST_MakeEnvelope(:min_lng, :min_lat, :max_lng, :max_lat, 4326)
+                )
+            )
+            SELECT 
+                cluster_id,
+                COUNT(*) as total_spots,
+                COUNT(CASE WHEN status = 'available' THEN 1 END) as available_spots,
+                AVG(latitude) as center_latitude,
+                AVG(longitude) as center_longitude,
+                array_agg(DISTINCT spot_type) as spot_types,
+                MIN(latitude) as min_lat,
+                MAX(latitude) as max_lat,
+                MIN(longitude) as min_lng,
+                MAX(longitude) as max_lng
+            FROM clustered_spots
+            WHERE cluster_id IS NOT NULL
+            GROUP BY cluster_id
+            ORDER BY total_spots DESC
+        """)
+        
+        result = await self.session.execute(
+            query,
+            {
+                "cluster_distance": cluster_distance_meters,
+                "min_lng": min_lng,
+                "min_lat": min_lat,
+                "max_lng": max_lng,
+                "max_lat": max_lat
+            }
+        )
+        
+        clusters = []
+        for row in result:
+            occupancy_rate = 0.0
+            if row.total_spots > 0:
+                occupancy_rate = ((row.total_spots - row.available_spots) / row.total_spots) * 100
+            
+            clusters.append({
+                "cluster_id": row.cluster_id,
+                "total_spots": row.total_spots,
+                "available_spots": row.available_spots,
+                "occupancy_rate": round(occupancy_rate, 2),
+                "center_latitude": float(row.center_latitude),
+                "center_longitude": float(row.center_longitude),
+                "spot_types": row.spot_types,
+                "bounds": {
+                    "min_latitude": float(row.min_lat),
+                    "max_latitude": float(row.max_lat),
+                    "min_longitude": float(row.min_lng),
+                    "max_longitude": float(row.max_lng)
+                }
+            })
+        
+        return clusters
+    
+    async def find_optimal_route_with_multiple_stops(self, start_lat: float, start_lng: float,
+                                                   stops: List[Tuple[float, float]],
+                                                   end_lat: float, end_lng: float) -> Dict[str, Any]:
+        """
+        Find optimal route through multiple parking lot stops using PostGIS
+        
+        Args:
+            start_lat: Starting latitude
+            start_lng: Starting longitude
+            stops: List of (lat, lng) stops to visit
+            end_lat: Ending latitude
+            end_lng: Ending longitude
+            
+        Returns:
+            Optimized route information
+        """
+        if not stops:
+            return await self.get_route_to_parking_spot_by_coords(start_lat, start_lng, end_lat, end_lng)
+        
+        # Create points for all locations
+        all_points = [(start_lat, start_lng)] + stops + [(end_lat, end_lng)]
+        
+        # Calculate distance matrix
+        query = text("""
+            WITH points AS (
+                SELECT 
+                    generate_series(0, :num_points - 1) as point_id,
+                    unnest(array[:point_coords]) as coords
+            ),
+            point_geoms AS (
+                SELECT 
+                    point_id,
+                    ST_SetSRID(ST_MakePoint(
+                        split_part(coords, ',', 2)::float,
+                        split_part(coords, ',', 1)::float
+                    ), 4326) as geom
+                FROM points
+            )
+            SELECT 
+                p1.point_id as from_id,
+                p2.point_id as to_id,
+                ST_Distance(
+                    ST_Transform(p1.geom, 3857),
+                    ST_Transform(p2.geom, 3857)
+                ) as distance_meters
+            FROM point_geoms p1
+            CROSS JOIN point_geoms p2
+            WHERE p1.point_id != p2.point_id
+            ORDER BY p1.point_id, p2.point_id
+        """)
+        
+        # Format coordinates for query
+        point_coords = [f"{lat},{lng}" for lat, lng in all_points]
+        
+        result = await self.session.execute(
+            query,
+            {
+                "num_points": len(all_points),
+                "point_coords": point_coords
+            }
+        )
+        
+        # Build distance matrix
+        distances = {}
+        for row in result:
+            distances[(row.from_id, row.to_id)] = row.distance_meters
+        
+        # Simple greedy TSP approximation for optimal order
+        unvisited = set(range(1, len(all_points) - 1))  # Exclude start and end
+        current = 0  # Start point
+        route_order = [current]
+        total_distance = 0
+        
+        while unvisited:
+            nearest = min(unvisited, key=lambda x: distances.get((current, x), float('inf')))
+            total_distance += distances.get((current, nearest), 0)
+            route_order.append(nearest)
+            unvisited.remove(nearest)
+            current = nearest
+        
+        # Add final leg to end point
+        route_order.append(len(all_points) - 1)
+        total_distance += distances.get((current, len(all_points) - 1), 0)
+        
+        # Build route details
+        route_legs = []
+        for i in range(len(route_order) - 1):
+            from_idx = route_order[i]
+            to_idx = route_order[i + 1]
+            from_point = all_points[from_idx]
+            to_point = all_points[to_idx]
+            
+            route_legs.append({
+                "from_latitude": from_point[0],
+                "from_longitude": from_point[1],
+                "to_latitude": to_point[0],
+                "to_longitude": to_point[1],
+                "distance_meters": distances.get((from_idx, to_idx), 0),
+                "leg_number": i + 1
+            })
+        
+        return {
+            "total_distance_meters": total_distance,
+            "estimated_time_minutes": round(total_distance / 1000 * 3, 1),  # 3 min per km
+            "route_order": route_order,
+            "route_legs": route_legs,
+            "optimized": True
+        }
+    
+    async def get_route_to_parking_spot_by_coords(self, from_lat: float, from_lng: float,
+                                                to_lat: float, to_lng: float) -> Dict[str, Any]:
+        """
+        Get route between two coordinates
+        
+        Args:
+            from_lat: Starting latitude
+            from_lng: Starting longitude
+            to_lat: Destination latitude
+            to_lng: Destination longitude
+            
+        Returns:
+            Route information
+        """
+        distance = await self.calculate_distance_between_points(from_lat, from_lng, to_lat, to_lng)
+        estimated_time_minutes = (distance / 1000) * (60 / 25)  # 25 km/h average
+        
+        return {
+            "distance_meters": distance,
+            "estimated_time_minutes": round(estimated_time_minutes, 1),
+            "destination_lat": to_lat,
+            "destination_lng": to_lng
+        }
+    
+    async def analyze_spatial_coverage(self, center_lat: float, center_lng: float,
+                                     analysis_radius_km: float = 5.0) -> Dict[str, Any]:
+        """
+        Analyze spatial coverage and distribution of parking infrastructure
+        
+        Args:
+            center_lat: Analysis center latitude
+            center_lng: Analysis center longitude
+            analysis_radius_km: Analysis radius in kilometers
+            
+        Returns:
+            Spatial coverage analysis
+        """
+        query = text("""
+            WITH analysis_area AS (
+                SELECT ST_Buffer(
+                    ST_Transform(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326), 3857),
+                    :radius_m
+                ) as area_geom
+            ),
+            coverage_analysis AS (
+                SELECT 
+                    COUNT(DISTINCT pl.id) as total_lots,
+                    COUNT(ps.id) as total_spots,
+                    COUNT(CASE WHEN ps.status = 'available' THEN 1 END) as available_spots,
+                    AVG(ST_Distance(
+                        ST_Transform(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326), 3857),
+                        ST_Transform(pl.location, 3857)
+                    )) as avg_distance_to_center,
+                    MIN(ST_Distance(
+                        ST_Transform(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326), 3857),
+                        ST_Transform(pl.location, 3857)
+                    )) as min_distance_to_center,
+                    MAX(ST_Distance(
+                        ST_Transform(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326), 3857),
+                        ST_Transform(pl.location, 3857)
+                    )) as max_distance_to_center,
+                    ST_Area(ST_ConvexHull(ST_Collect(pl.location))) / ST_Area(aa.area_geom) * 100 as coverage_percentage
+                FROM parking_lots pl
+                JOIN parking_spots ps ON ps.parking_lot_id = pl.id
+                CROSS JOIN analysis_area aa
+                WHERE 
+                    pl.status = 'active'
+                    AND ST_Within(ST_Transform(pl.location, 3857), aa.area_geom)
+            ),
+            quadrant_analysis AS (
+                SELECT 
+                    CASE 
+                        WHEN ST_X(ST_Transform(pl.location, 4326)) >= :lng AND ST_Y(ST_Transform(pl.location, 4326)) >= :lat THEN 'NE'
+                        WHEN ST_X(ST_Transform(pl.location, 4326)) < :lng AND ST_Y(ST_Transform(pl.location, 4326)) >= :lat THEN 'NW'
+                        WHEN ST_X(ST_Transform(pl.location, 4326)) >= :lng AND ST_Y(ST_Transform(pl.location, 4326)) < :lat THEN 'SE'
+                        ELSE 'SW'
+                    END as quadrant,
+                    COUNT(pl.id) as lots_count,
+                    SUM(pl.total_spots) as spots_count
+                FROM parking_lots pl
+                CROSS JOIN analysis_area aa
+                WHERE 
+                    pl.status = 'active'
+                    AND ST_Within(ST_Transform(pl.location, 3857), aa.area_geom)
+                GROUP BY quadrant
+            )
+            SELECT 
+                ca.*,
+                json_object_agg(qa.quadrant, json_build_object(
+                    'lots_count', qa.lots_count,
+                    'spots_count', qa.spots_count
+                )) as quadrant_distribution
+            FROM coverage_analysis ca
+            CROSS JOIN quadrant_analysis qa
+            GROUP BY ca.total_lots, ca.total_spots, ca.available_spots, 
+                     ca.avg_distance_to_center, ca.min_distance_to_center, 
+                     ca.max_distance_to_center, ca.coverage_percentage
+        """)
+        
+        result = await self.session.execute(
+            query,
+            {
+                "lat": center_lat,
+                "lng": center_lng,
+                "radius_m": analysis_radius_km * 1000
+            }
+        )
+        
+        row = result.first()
+        if row:
+            return {
+                "analysis_center": {"latitude": center_lat, "longitude": center_lng},
+                "analysis_radius_km": analysis_radius_km,
+                "total_lots": row.total_lots or 0,
+                "total_spots": row.total_spots or 0,
+                "available_spots": row.available_spots or 0,
+                "occupancy_rate": ((row.total_spots - row.available_spots) / max(row.total_spots, 1)) * 100,
+                "coverage_percentage": float(row.coverage_percentage) if row.coverage_percentage else 0.0,
+                "distance_stats": {
+                    "avg_distance_to_center_m": float(row.avg_distance_to_center) if row.avg_distance_to_center else 0.0,
+                    "min_distance_to_center_m": float(row.min_distance_to_center) if row.min_distance_to_center else 0.0,
+                    "max_distance_to_center_m": float(row.max_distance_to_center) if row.max_distance_to_center else 0.0
+                },
+                "quadrant_distribution": row.quadrant_distribution or {}
+            }
+        
+        return {
+            "analysis_center": {"latitude": center_lat, "longitude": center_lng},
+            "analysis_radius_km": analysis_radius_km,
+            "total_lots": 0,
+            "total_spots": 0,
+            "available_spots": 0,
+            "occupancy_rate": 0.0,
+            "coverage_percentage": 0.0,
+            "distance_stats": {
+                "avg_distance_to_center_m": 0.0,
+                "min_distance_to_center_m": 0.0,
+                "max_distance_to_center_m": 0.0
+            },
+            "quadrant_distribution": {}
         }
 
 

@@ -29,3 +29,13 @@ email-validator>=1.1.0,<2.1
 
 # Rate Limiting & CORS  
 fastapi-limiter==0.1.6
+
+# Advanced Spatial Processing
+osrm-py==0.4
+networkx==3.2.1
+rtree==1.1.0
+pyproj==3.6.1
+folium==0.15.0
+geohash2==1.1
+h3==3.7.6
+scikit-learn==1.3.2
