@@ -1,0 +1,59 @@
+# Ignore files for Docker builds
+
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+dist/
+build/
+.next/
+coverage/
+
+# Development files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Documentation
+docs/
+*.md
+README.md
+
+# Tests
+tests/
+**/*test*
+**/*spec*
+.coverage
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Monitoring
+monitoring/
+
+# SSL certificates
+*.pem
+*.key
+*.crt

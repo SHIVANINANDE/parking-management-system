@@ -1,0 +1,71 @@
+# Ignore files for Docker builds
+
+# Version control
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+node_modules
+**/node_modules
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+*.egg-info/
+
+# Build outputs
+dist/
+build/
+.next/
+coverage/
+
+# Development files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Documentation
+docs/
+*.md
+README.md
+
+# Tests
+tests/
+**/*test*
+**/*spec*
+.coverage
+.pytest_cache
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Monitoring
+monitoring/
+
+# SSL certificates
+*.pem
+*.key
+*.crt

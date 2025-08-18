@@ -1,0 +1,49 @@
+# Docker Compose override for local development
+version: '3.8'
+
+services:
+  # Override backend for development
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.dev
+    environment:
+      - DEBUG=true
+      - RELOAD=true
+      - LOG_LEVEL=debug
+    volumes:
+      - ../backend:/app
+      - backend_logs:/app/logs
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # debugpy port
+    command: >
+      sh -c "pip install debugpy &&
+             python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  # Override frontend for development
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    ports:
+      - "3000:3000"
+      - "24678:24678"  # HMR port
+
+  # Add development database with more relaxed settings
+  postgres:
+    environment:
+      - POSTGRES_LOG_STATEMENT=all
+      - POSTGRES_LOG_MIN_DURATION_STATEMENT=0
+    volumes:
+      - ../backend/scripts/dev-init.sql:/docker-entrypoint-initdb.d/99-dev-init.sql
+
+volumes:
+  backend_logs:
+  node_modules:

@@ -4,14 +4,14 @@ services:
   # PostgreSQL with PostGIS
   postgres:
     image: postgis/postgis:15-3.4
-    container_name: parking_postgres
+    container_name: parking_postgres_prod
     environment:
-      POSTGRES_DB: parking_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-parking_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGIS_VERSION: 3.4
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -19,7 +19,7 @@ services:
     networks:
       - parking_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d parking_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-parking_db}"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -34,13 +34,10 @@ services:
   # Redis
   redis:
     image: redis:7-alpine
-    container_name: parking_redis
-    command: redis-server --appendonly yes --requirepass redispassword
-    ports:
-      - "6379:6379"
+    container_name: parking_redis_prod
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - parking_network
     healthcheck:
@@ -59,19 +56,16 @@ services:
   # Elasticsearch
   elasticsearch:
     image: elasticsearch:8.11.0
-    container_name: parking_elasticsearch
+    container_name: parking_elasticsearch_prod
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
       - bootstrap.memory_lock=true
     ulimits:
       memlock:
         soft: -1
         hard: -1
-    ports:
-      - "9200:9200"
-      - "9300:9300"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
@@ -92,7 +86,7 @@ services:
   # Zookeeper for Kafka
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
-    container_name: parking_zookeeper
+    container_name: parking_zookeeper_prod
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -118,17 +112,15 @@ services:
   # Kafka
   kafka:
     image: confluentinc/cp-kafka:7.4.0
-    container_name: parking_kafka
+    container_name: parking_kafka_prod
     depends_on:
       zookeeper:
         condition: service_healthy
-    ports:
-      - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_HOST://kafka:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_EXTERNAL_HOST:-localhost}:9092,PLAINTEXT_HOST://kafka:29092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -155,18 +147,18 @@ services:
   backend:
     build:
       context: ../backend
-      dockerfile: Dockerfile.dev
-    container_name: parking_backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: parking_backend_prod
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/parking_db
-      REDIS_URL: redis://:redispassword@redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-parking_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       ELASTICSEARCH_URL: http://elasticsearch:9200
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      ENV: development
-      LOG_LEVEL: debug
-      CORS_ORIGINS: http://localhost:3000,http://frontend:3000
-    ports:
-      - "8000:8000"
+      ENV: production
+      LOG_LEVEL: info
+      SECRET_KEY: ${SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
     depends_on:
       postgres:
         condition: service_healthy
@@ -177,11 +169,15 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - ../backend:/app
       - backend_logs:/app/logs
     networks:
       - parking_network
-    restart: unless-stopped
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
     logging:
       driver: "json-file"
       options:
@@ -192,37 +188,32 @@ services:
   frontend:
     build:
       context: ../frontend
-      dockerfile: Dockerfile.dev
-    container_name: parking_frontend
-    environment:
-      VITE_API_URL: http://localhost:8000
-      VITE_WS_URL: ws://localhost:8000
-      NODE_ENV: development
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules
+      dockerfile: Dockerfile
+      target: production
+    container_name: parking_frontend_prod
     networks:
       - parking_network
-    restart: unless-stopped
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # Nginx Reverse Proxy
+  # Nginx Load Balancer
   nginx:
     image: nginx:alpine
-    container_name: parking_nginx
+    container_name: parking_nginx_prod
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/nginx-prod.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl:/etc/nginx/ssl
       - nginx_logs:/var/log/nginx
     depends_on:
@@ -246,9 +237,7 @@ services:
   # Monitoring with Prometheus
   prometheus:
     image: prom/prometheus:latest
-    container_name: parking_prometheus
-    ports:
-      - "9090:9090"
+    container_name: parking_prometheus_prod
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -258,6 +247,7 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
     networks:
       - parking_network
     restart: unless-stopped
@@ -265,11 +255,10 @@ services:
   # Grafana for visualization
   grafana:
     image: grafana/grafana:latest
-    container_name: parking_grafana
-    ports:
-      - "3001:3000"
+    container_name: parking_grafana_prod
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
