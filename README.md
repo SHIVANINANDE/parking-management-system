@@ -22,6 +22,8 @@ A comprehensive, modern parking management platform built with FastAPI, React, a
 
 ## 🏗️ Architecture Overview
 
+📖 **For comprehensive system design documentation, see [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)**
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Frontend      │    │    Backend      │    │   Data Layer    │
@@ -219,6 +221,8 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ## 📁 Project Structure
 
+For detailed system architecture and design decisions, see: **[SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)**
+
 ```
 parking-management-system/
 ├── backend/                    # FastAPI backend
@@ -248,9 +252,11 @@ parking-management-system/
 │   ├── api-documentation.md   # Complete API reference
 │   ├── architectural-decision-records.md
 │   ├── database-schema.md     # Database design
-│   └── system-design.md       # System architecture
+│   ├── system-design.md       # System architecture
+│   └── SYSTEM_DESIGN.md       # Comprehensive system design
 ├── docker/                    # Docker configurations
 ├── scripts/                   # Automation scripts
+├── PERFORMANCE_BENCHMARKS.md  # Verified performance metrics
 └── README.md                  # This file
 ```
 
