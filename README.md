@@ -142,6 +142,8 @@ cd backend && python simple_benchmark.py  # Database performance testing
 
 ## 🎯 Resume-Ready Bullet Points
 
+📄 **For a comprehensive one-page overview, see: [PORTFOLIO_OVERVIEW.md](PORTFOLIO_OVERVIEW.md)**
+
 Based on actual benchmarked performance metrics and comprehensive system implementation:
 
 • **Built a high-performance full-stack parking management platform** with FastAPI backend, React 18 frontend, and PostgreSQL+PostGIS database, implementing 9 core algorithms including Haversine spatial search, A* pathfinding, and dynamic pricing, achieving 10,095+ queries/sec with 0.07ms median latency
@@ -258,6 +260,7 @@ parking-management-system/
 ├── docker/                    # Docker configurations
 ├── scripts/                   # Automation scripts
 ├── PERFORMANCE_BENCHMARKS.md  # Verified performance metrics
+├── PORTFOLIO_OVERVIEW.md      # One-page project overview for portfolio/resume
 └── README.md                  # This file
 ```
 
